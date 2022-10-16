@@ -1,7 +1,6 @@
 #define DECODE_NEC
 
 
-
 #include <IRremote.hpp>
 #include <ArxContainer.h>
 #include <SPI.h>
@@ -17,19 +16,30 @@ const int green_rgb = 6;
 const int blue_rgb = 5;
 
 const int trigger = 8;
-const int echo = 2;
-const int distance = 25;
+const int echo = 4;
+const int distance = 150;
 
-const int speaker = 12;
+const int speaker = 2;
 
 const int power = 0x45;
 const int one = 0xC;
+const int two = 0x18;
 const int nine = 0x4A;
 const int seven = 0x42;
 const int funcbutton = 0x47;
 
+bool getOutLoop = false;
+
+
+
 LiquidCrystal lcd(10);
 NewPing sonar(trigger, echo, distance);
+
+arx::vector<int> password {one, nine, seven, nine};
+
+void (*resetFunc)(void) = 0;
+
+
 
 
 void setup() {
@@ -44,46 +54,115 @@ void setup() {
   pinMode(green_rgb, OUTPUT);
   pinMode(blue_rgb, OUTPUT);
 
-  lcd.print("Press Power");
+  lcd.print("Press power");
   lcd.setCursor(0, 1);
   lcd.print("to start");
+
 
   Serial.begin(9600);
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
+  
+  while (getOutLoop == false){
   static unsigned int lastButtonPushed;
+  lighting(250, 20, 100);
   if (IrReceiver.decode()) {
     unsigned int buttonPushed = IrReceiver.decodedIRData.command;
     if (buttonPushed != lastButtonPushed && IrReceiver.decodedIRData.protocol == NEC) {
       switch (IrReceiver.decodedIRData.command) {
         case power:
+          lcd.clear();
           options();
+          getOutLoop = true;
           break;
         default:
-          lcd.clear();
-          lcd.setCursor(0,0);
-          lcd.print("Press power");
+          lcd.setCursor(0, 0);
+          lcd.print("Please press");
           lcd.setCursor(0, 1);
-          lcd.print("button to start");
+          lcd.print("power to start");
       }
       IrReceiver.printIRResultShort(&Serial);
       lastButtonPushed = buttonPushed;
     }
     IrReceiver.resume();
   }
-}
-void options(){
-  lcd.clear();
-  char line1[] = "Hello World";
-  char line2[] = "Where you";
-  while (true){
-    lcd.setCursor(0, 0);
-    for (int i = 0; i < sizeof(line2); i++) {
-      lcd.print(line2[i]);
-      delay(500);
-    }
-    static unsigned int lastButtonPushed;
   }
+}
+void options() {
+  lcd.clear();
+  char options[] = "1 to arm and 2 to reset. ";
+  bool condition = true;
+  while (condition == true) {
+    lcd.setCursor(0, 0);
+    lighting(100, 100, 100);
+    for (int i = 0; i < sizeof(options) - 1; i++) {
+      lcd.print(options[i]);
+      delay(250);
+      if (i > 16) {
+        lcd.autoscroll();
+      }
+      if (IrReceiver.decode()) {
+        break;
+      }
+    }
+    if (IrReceiver.decodedIRData.protocol == NEC) {
+      switch (IrReceiver.decodedIRData.command) {
+        case one:
+          lcd.clear();
+          lcd.noAutoscroll();
+          armTheWeapon();
+          condition = false;
+          break;
+        case two:
+          lcd.clear();
+          lcd.noAutoscroll();
+          theGreatReset();
+          condition = false;
+          break;
+      }
+      IrReceiver.resume();
+    }   
+  }
+}
+void theGreatReset() {
+  for (int i = 3; i != 0; i--) {
+    lcd.setCursor(0, 0);
+    lcd.print("Reset in " + String(i));
+    delay(500);
+  }
+  resetFunc();
+}
+void armTheWeapon() {
+  lcd.print("Armed");
+  lighting(250, 0, 0);
+  bool notDinged = true;
+  unsigned int timeed;
+  while (notDinged == true){
+    delay(50);
+    unsigned int ding = sonar.ping(); 
+    if (ding < 150){
+      lcd.clear();
+      lcd.print("INTRUDER!"); 
+      timeed = millis();             
+      notDinged = false;
+
+    }
+  }
+  while (millis() - timeed < 3000){
+    NewTone(speaker, 2000);
+    lighting(250, 150, 50);
+  }
+  lcd.clear();
+  options();
+
+  
+  
+
+}
+void lighting(int red, int green, int blue){
+  analogWrite(red_rgb, red);
+  analogWrite(blue_rgb, blue);
+  analogWrite(green_rgb, green);
 }

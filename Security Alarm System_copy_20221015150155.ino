@@ -30,6 +30,8 @@ const int funcbutton = 0x47;
 
 bool getOutLoop = false;
 
+int counter = 0;
+
 
 
 LiquidCrystal lcd(10);
@@ -155,7 +157,9 @@ void armTheWeapon() {
     lighting(250, 150, 50);
   }
   lcd.clear();
-  options();
+  noNewTone(speaker);
+  IrReceiver.resume();
+  counter1();
 
   
   
@@ -165,4 +169,46 @@ void lighting(int red, int green, int blue){
   analogWrite(red_rgb, red);
   analogWrite(blue_rgb, blue);
   analogWrite(green_rgb, green);
+}
+void counter1(){
+  counter++;
+  unsigned int startTime = millis();
+  lighting(0, 250, 0);
+  while (millis() - startTime < 3000) {
+    lcd.setCursor(0, 0);
+    lcd.print("Caught " + String(counter) + " time(s)");
+  }
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("1 to rearm");
+  lcd.setCursor(0, 1);
+  lcd.print("2 to reset");
+  while (true){
+    static unsigned lastButtonPushed;
+    if (IrReceiver.decode()) {
+       unsigned int buttonPushed = IrReceiver.decodedIRData.command;
+       if (buttonPushed != lastButtonPushed && IrReceiver.decodedIRData.protocol == NEC) {
+         switch(IrReceiver.decodedIRData.command){
+           case one:
+              lcd.clear();
+              armTheWeapon();
+              break;
+            case two:
+              lcd.clear();
+              theGreatReset();
+              break;
+            default:
+              lcd.clear();
+              lcd.setCursor(0, 0);
+              lcd.print("Please choose");
+              lcd.setCursor(0, 1);
+              lcd.print("1 or 2");
+         }
+         lastButtonPushed = buttonPushed;
+       }
+       IrReceiver.resume();
+    }
+
+
+  }
 }
